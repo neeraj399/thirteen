@@ -1,0 +1,19 @@
+{
+  "name": "thirteen",
+  "version": "0.0.1",
+  "description": "The Game of Thirteen",
+  "main": "server.js",
+  "dependencies": {
+  },
+  "engine": {
+    "node": "*",
+    "npm": "*"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neeraj399/thirteen.git"
+  }
+}
