@@ -1,0 +1,77 @@
+<html>
+<head>
+<style type="text/css">
+.card{
+  width: 60px;
+  height: 90px;
+  border-style: solid;
+  border-width: thin;
+  border-radius: 6px;
+  position: relative;
+}
+.card.spades .symbol:after{
+  content: "\2660";
+}
+.card.clubs .symbol:after{
+  content: "\2663";
+}
+.card.diamonds .symbol:after{
+  content: "\2666";
+}
+.card.hearts .symbol:after{
+  content: "\2665";
+}
+
+.card.diamonds, .card.hearts{
+  color: red;
+}
+
+.card .bottomRight{
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+.card .topLeft{
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.card .center{
+    text-align: center;
+    vertical-align: middle;
+    line-height: 90px;
+    font-size: 75px;
+}
+  </style>
+</head>
+
+<body>
+  <div class="card clubs">
+  <div class="topLeft">
+    <div class="value">
+      2
+    </div>
+    <div class="symbol">
+
+    </div>
+  </div>
+  <div class="center value">
+    2
+  </div>
+  <div class="bottomRight">
+    <div class="symbol">
+      
+    </div>
+    <div class="value">
+      2
+    </div>
+  </div>
+</div>
+  
+
+
+
+
+</body></html>

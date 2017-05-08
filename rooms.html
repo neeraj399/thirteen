@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title></title>
+		<style>
+		</style>
+		<script type="text/javascript">
+			
+			var ws = new WebSocket('ws://ltneerajgupta:3000');
+			
+			ws.onmessage = function(evt){
+				var message = evt.data;
+				var messageObj = JSON.parse(message);
+				console.log(messageObj);
+				var action = messageObj.action;
+				switch(action){
+					case "roomsInfo":
+						var rooms = messageObj.rooms;
+						for(var i=0;i<rooms.length;i++){
+							var room = rooms[i];
+							var div = document.createElement("div");
+							div.className = "room";
+							div.style.cursor = "pointer";
+							div.setAttrbute("data-id", room.id);
+							div.innerText = "Room - " + room.id + " -- " + room.players.length + " players";
+							document.body.appendChild(div);
+						}
+						break;
+				}
+			};
+			
+			ws.onopen = function(evt){
+				ws.send(JSON.stringify({
+					"action":"getRooms"
+				}));
+			};
+			document.addEventListener('click', function(e){
+				console.log(e);
+				var classname = e.target.className;
+				if(classname == "room"){
+					var roomId = e.target.getAttribute("data-id");
+					ws.send(JSON.stringify({
+						"action":"joinRoom",
+						"roomId": roomId
+					}));
+					document.location.href = document.location.origin + "/rooms/" + roomId;
+				}
+			});
+		</script>
+	</head>
+	<body>
+		
+	</body>
+	<script>
+		
+	</script>
+</html>

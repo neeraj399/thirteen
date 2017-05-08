@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<html>
+	<head>
+		<!-- <script src="http://10.100.30.150:8080/target/target-script-min.js"></script> -->
+		<title></title>
+		<style>
+			.horizontal .card{
+				width: 6vw;
+				height: 9vw;
+				float: left;
+				border-style: solid;
+				border-width: thin;
+				border-radius: 6px;
+				text-align: center;
+				font-size: 3.7vw;
+				background-color: white;
+			}
+			.vertical .card{
+				height: 6vw;
+				width: 9vw;
+				border-style: solid;
+				border-width: thin;
+				border-radius: 6px;
+				position: relative;
+			}
+			
+			/* .player3 .card{
+				transition: margin-right 0.5s ease-in-out;
+			} */
+			
+			.card.spades .symbol:after{
+				content: "\2660";
+			}
+			.card.clubs .symbol:after{
+				content: "\2663";
+			}
+			.card.diamonds .symbol:after{
+				content: "\2666";
+			}
+			.card.hearts .symbol:after{
+				content: "\2665";
+			}
+
+			.card.diamonds, .card.hearts{
+				color: red;
+			}
+
+			
+			.thisPlayer .card{
+				cursor: pointer;
+			}
+			.player1 .card{
+				transition: margin-left 0.5s ease-in-out;
+			}
+			.player1 .card:first-child{
+				margin-left: 3vw;
+			}
+			.player2 .card{
+				transition: margin-bottom 0.5s ease-in-out;
+			}
+			.player2 .card:last-child{
+				margin-bottom: 3vw;
+			}
+			.player3 .card{
+				transition: margin-right 0.5s ease-in-out;
+			}
+			.player3 .card:last-child{
+				margin-right: 3vw;
+			}
+			.player4 .card{
+				transition: margin-top 0.5s ease-in-out;
+			}
+			.player4 .card:first-child{
+				margin-top: 3vw;
+			}
+			
+			.player1{
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				//transform: translateX(-50%);
+				//display: -webkit-inline-box;
+			}
+			.player2{
+				position: absolute;
+				right: 0;
+				bottom: 0;
+				//transform: translateY(-50%);
+			}
+			.player3{
+				position: absolute;
+				top: 0;
+				right: 0;
+				//transform: translateX(-50%);
+				//display: -webkit-inline-box;
+			}
+			.player4{
+				position: absolute;
+				left: 0;
+				top: 0;
+				//transform: translateY(-50%);
+			}
+			
+			.playerNode{
+				display: inline-table;
+			}
+			.playerNode:not(.thisPlayer) .card{
+				background: linear-gradient(to bottom right, #1B00FF, #F300FF);;
+			}
+			
+			#cardsDown{
+				position: absolute;
+				top: 50%;
+				left: 50%;
+			}
+			
+			#cardsDown .cards{
+				bottom: 0;
+				transform: translateX(-50%);
+				//display: -webkit-inline-box;
+			}
+			
+			#gameControls{
+				position: absolute;
+				bottom: 10vw;
+				left: 10vw;
+			}
+			/* #table{
+				margin-top: 5vh;
+				border-style: inset;
+				border-width: thin;
+				position: relative;
+				width: 76vh;
+				height: 76vh;
+				background-color: darkgreen;
+			} */
+
+		</style>
+		<script type="text/javascript">
+			String.prototype.interpolate = function(object){
+				return this.replace(/#{(\w*)}/g, function(m, p){ 
+					return (typeof object[p] != "undefined"?object[p]:"");
+				});
+			};
+			function getCardHTMLNode(id){
+				var cards = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A", "2"];
+				var suits = ["spades", "clubs", "diamonds", "hearts"];
+				var tempEle = document.createElement("span");
+				tempEle.innerHTML = document.getElementById("cardTemplate").innerHTML.interpolate({
+					id: id,
+					value: cards[Math.floor(id/4)],
+					suit: suits[id%4]
+				});
+				return tempEle.querySelector("*");
+			}
+			function getOtherPlayerCardsHTML(numCards){
+				var html = [];
+				for(var i=0;i<numCards;i++){
+					html.push(document.getElementById("otherPlayerCardTemplate").innerHTML.interpolate({
+						
+					}));
+				}
+				return html.join("");
+			}
+			
+			//var roomId = prompt("Enter a roomId to join (1,2,3,4,5,6,7,8,9,10,11,12)");
+			//document.location.hash = roomId;
+			var ws = new WebSocket('ws://ltlen118:3000');
+			// var ws = new WebSocket('ws://10.100.30.189:3000');
+			//alert(ws);
+			var playerObj;
+			var gameObj;
+			var otherPlayers = [];
+			var cardIndices = [];
+			var timerSI;
+			var gameStartTimerSI;
+			
+			ws.onmessage = function(evt){
+				var message = evt.data;
+				var messageObj = JSON.parse(message);
+				console.log(messageObj);
+				var action = messageObj.action;
+				switch(action){
+					case "you":
+						playerObj = messageObj.you;
+						break;
+					case "roomsInfo":
+						document.getElementById("rooms").innerText = "";
+						var rooms = messageObj.rooms;
+						for(var i=0;i<rooms.length;i++){
+							var room = rooms[i];
+							var div = document.createElement("div");
+							div.className = "room";
+							div.style.cursor = "pointer";
+							div.setAttribute("data-id", room.id);
+							div.innerText = "Room - " + room.id + " -- " + room.players.length + " players";
+							document.getElementById("rooms").appendChild(div);
+						}
+						break;
+					/* case "roomJoinedAsGuest":
+					case "roomUpdateAsGuest":
+						var roomObj = messageObj.room;
+						var playerObjs = roomObj.players;
+						//var playerObj;
+						
+						//var playerDir = playerObj.direction;
+						var playerNodes = document.querySelectorAll(".playerNode");
+						for(var i=0;i<playerNodes.length;i++){
+							var playerNode = playerNodes[i];
+							playerNode.setAttribute("data-dir", i%4);
+							playerNode.querySelectorAll(".playerCards")[0].innerText = "waiting...";
+						}
+						for(var i=0;i<playerObjs.length;i++){
+							document.querySelectorAll(".playerNode[data-dir='" + playerObjs[i].direction + "'] .playerCards")[0].innerText = "joined";
+						}
+						
+						if(action == "roomJoinedAsGuest"){
+							document.location.hash = "room" + messageObj.room.id;
+							document.getElementById("rooms").style.display = "none";
+							document.getElementById("room").style.display = "block";
+							document.getElementById("roomId").innerText = "Room - " + roomObj.id + " -- You are viewing this room";
+						}
+						break; */
+					case "roomJoined":
+					case "roomUpdate":
+						var roomObj = messageObj.room;
+						var playerObjs = roomObj.players;
+						//var playerObj;
+						var isPlayer = false;
+						var playerDir = -1;
+						var playerNodesSelector = ".playerNode";
+						
+						for(var i=0;i<playerObjs.length;i++){
+							if(playerObjs[i].id == playerObj.id){
+								playerObj = playerObjs[i];
+								isPlayer = true;
+								var player1Node = document.querySelector(".player1");
+								player1Node.className += " thisPlayer";
+								playerDir = playerObj.direction;
+								playerNodesSelector += ":not(.thisPlayer)";
+								player1Node.setAttribute("data-dir", playerDir);
+								break;
+							}
+						}
+						
+						var otherPlayerNodes = document.querySelectorAll(playerNodesSelector);
+						for(var i=0;i<otherPlayerNodes.length;i++){
+							var otherPlayerNode = otherPlayerNodes[i];
+							otherPlayerNode.setAttribute("data-dir", (playerDir + 1 + i)%4);
+							//otherPlayerNode.querySelector(".playerCards").innerText = "waiting...";
+						}
+						for(var i=0;i<playerObjs.length;i++){
+							if(playerObjs[i].id != playerObj.id){
+								var playerNode = document.querySelector(".playerNode[data-dir='" + playerObjs[i].direction + "']");
+								if(playerObjs[i].numCards){
+									var cardsNode = playerNode.querySelector(".playerCards");
+									if(action == "roomJoined"){
+										cardsNode.innerHTML = getOtherPlayerCardsHTML(playerObjs[i].numCards);
+									}
+									else{
+										//debugger;
+										var cards = playerNode.querySelectorAll(".card");
+										var diffCards = cards.length - playerObjs[i].numCards;
+										var cardIndexToRemove = cards.length - 1;
+										while(diffCards-- > 0){
+											cardsNode.removeChild(cards[cardIndexToRemove--]);
+										}
+									}
+									
+									
+									cardsNode.innerHTML = getOtherPlayerCardsHTML(playerObjs[i].numCards);
+								}
+								else{
+									playerNode.querySelector(".playerCards").innerText = "waiting...";
+								}
+								
+								if(playerObjs[i].position){
+									var positionNode = playerNode.querySelector(".position");
+									positionNode.innerText = " -- Position - " + playerObjs[i].position;
+								}
+							}
+						}
+						placeCards(roomObj.cardsOnTable || [], "#cardsDown .cards");
+						if(action == "roomJoined"){
+							document.location.hash = "room" + messageObj.room.id;
+							document.getElementById("rooms").style.display = "none";
+							document.getElementById("room").style.display = "block";
+							document.getElementById("roomId").innerText = "Room - " + roomObj.id + (!isPlayer?" -- You are viewing this room":"");
+							//startGameStartTimer(roomObj.currentTimeLeft);
+						}
+						break;
+					case "updateCards":
+						placeCards(messageObj.cards, ".playerNode.thisPlayer .playerCards");
+						var cardNodes = document.querySelectorAll(".playerNode.thisPlayer .playerCards .card");
+						for(var i=0;i<cardNodes.length;i++){
+							var cardNode = cardNodes[i];
+							cardNode.onclick = function(e){
+								console.log(e);
+								var element = e.currentTarget;
+								if(cardIndices.indexOf(parseInt(element.id))==-1){
+									element.style.backgroundColor = "yellow";
+									cardIndices.push(parseInt(element.id));
+								}
+								else{
+									element.style.backgroundColor = "white";
+									cardIndices.splice(cardIndices.indexOf(parseInt(element.id)),1);
+								}
+							};
+						}
+						setTimeout(function(){
+							arrangePlayer1Cards();
+						}, 0);
+						//stopTimerForPlayer();
+						break;
+					case "placeCards":
+						//document.title += " -- PlaceCards";
+						document.querySelector(".timer").innerText = "Place Cards";
+						cardIndices = [];
+						break;
+					case "placeFreshCards":
+						document.querySelector(".timer").innerText = "Place Fresh Cards";
+						cardIndices = [];
+						break;
+					case "cleanTable":
+						cleanTable();
+						//break;
+					case "gameStart":
+					case "gameUpdate":
+					case "gameEnded":
+						//stopTimerForPlayer();
+						//debugger;
+						gameObj = messageObj.game;
+						var playerObjs = gameObj.players;
+						//var playerObj;
+						//var isPlayer = false;
+						var playerDir = -1;
+						var playerNodesSelector = ".playerNode";
+						//var nextPlayer;
+						
+						for(var i=0;i<playerObjs.length;i++){
+							if(playerObjs[i].id == playerObj.id){
+								playerObj = playerObjs[i];
+								//isPlayer = true;
+								playerDir = playerObj.direction;
+								playerNodesSelector += ":not(.thisPlayer)";
+								document.querySelector(".thisPlayer").setAttribute("data-dir", playerDir);
+								break;
+							}
+							/* if(gameObj.nextPlayerDirectionToMove == playerObjs[i].direction){
+								nextPlayer = playerObjs[i];
+							} */
+						}
+						
+						
+						var otherPlayerNodes = document.querySelectorAll(playerNodesSelector);
+						for(var i=0;i<otherPlayerNodes.length;i++){
+							var otherPlayerNode = otherPlayerNodes[i];
+							var direction = (playerDir + 1 + i)%4; 
+							otherPlayerNode.setAttribute("data-dir", direction);
+							//otherPlayerNode.querySelector(".playerCards").innerText = "";
+							//otherPlayerNode.querySelector(".timer").innerText = "";
+							/* if(direction == gameObj.nextPlayerDirectionToMove){
+								otherPlayerNode.querySelector(".timer").innerText = "..waiting for cards...";
+							} */
+						}
+						for(var i=0;i<playerObjs.length;i++){
+							if(playerObjs[i].id != playerObj.id){
+								var otherPlayerObj = playerObjs[i];
+								var playerNode = document.querySelector(".playerNode[data-dir='" + otherPlayerObj.direction + "']");
+								var cardsNode = playerNode.querySelector(".playerCards");
+								if(action == "gameStart"){
+									cardsNode.innerHTML = getOtherPlayerCardsHTML(13);	//otherPlayerObj.numCards);
+								}
+								else{
+									//debugger;
+									var cards = playerNode.querySelectorAll(".card");
+									var diffCards = cards.length - otherPlayerObj.numCards;
+									if(playerNode.className.indexOf("player2") != -1 || playerNode.className.indexOf("player3") != -1){
+										var cardIndexToRemove = 0;
+										while(diffCards-- > 0){
+											cardsNode.removeChild(cards[cardIndexToRemove++]);
+										}
+									}
+									else if(playerNode.className.indexOf("player1") != -1 || playerNode.className.indexOf("player4") != -1){
+										var cardIndexToRemove = cards.length - 1;
+										while(diffCards-- > 0){
+											cardsNode.removeChild(cards[cardIndexToRemove--]);
+										}	
+									}
+								}
+								
+								//
+								if(gameObj.nextPlayerDirectionToMove == otherPlayerObj.direction){
+									document.querySelector(".timer").innerText = "Waiting for cards from player " + otherPlayerObj.id + "...";
+								}
+								if(otherPlayerObj.position){
+									var positionNode = playerNode.querySelector(".position");
+									positionNode.innerText = " -- Position - " + otherPlayerObj.position;
+								}
+							}
+						}
+						document.title = playerObj.numCards + (playerObj.position ? (" -- Position - " + playerObj.position) : "");
+						//startTimerForPlayer(".playerNode[data-dir='" + nextPlayer.direction + "'] .timer", nextPlayer.currentTimeLeft > 0 ? nextPlayer.currentTimeLeft : undefined);
+						if(action == "gameEnded"){
+							stopTimers();
+							document.querySelector("#cardsDown .cards").innerText = "";
+						}
+						if(action == "gameStart"){
+							stopGameStartTimer();
+						}
+						setTimeout(function(){
+							//return;
+							arrangePlayer1Cards();
+							arrangePlayer2Cards();
+							arrangePlayer3Cards();
+							arrangePlayer4Cards();
+						}, 0);
+						break;
+					case "validMove":
+						cleanTable();
+						var cardsDown = messageObj.move.cardsDown;
+						//placeCards(cardsDown, "#cardsDown .cards");
+						document.querySelector(".timer").innerText = "";
+						var direction = gameObj.nextPlayerDirectionToMove;
+						var playerNode = document.querySelector(".playerNode[data-dir='" + direction + "']");
+						var cardsNode = playerNode.querySelector(".playerCards");
+						var cardsRect = cardsNode.getBoundingClientRect();
+						
+						var cardNodes = [];
+						for(var i=0;i<52;i++){
+							if(cardsDown[i] == "1"){
+								cardNodes.push(getCardHTMLNode(i));
+							}
+						}
+						var cardNodesContainer = document.createElement("div");
+						cardNodesContainer.setAttribute("class", "cardsDownContainer");
+						document.body.appendChild(cardNodesContainer);
+						for(var i=0;i<cardNodes.length;i++){
+							var cardNode = cardNodes[i];
+							cardNodesContainer.appendChild(cardNode);
+						}
+						cardNodesContainer.className += " horizontal";
+						cardNodesContainer.style.position = "absolute";
+						cardNodesContainer.style.top = cardsRect.top + "px";
+						cardNodesContainer.style.left = cardsRect.left + "px";
+						setTimeout(function(){
+							cardNodesContainer.style.transition = "all 1s";
+							cardNodesContainer.style.top = "50%";
+							cardNodesContainer.style.left = "50%";
+							cardNodesContainer.style.transform = "translateX(-50%) translateY(-50%)";
+						}, 10);
+						//stopTimerForPlayer();
+						break;
+					case "invalidMove":
+						var cards = document.querySelectorAll(".thisPlayer .card");
+						for(var i=0;i<cards.length;i++){
+							cards[i].style.backgroundColor = "white";
+						}
+						cardIndices = [];
+						break;
+					case "passed":
+						document.querySelector(".timer").innerText = "";
+						var cards = document.querySelectorAll(".thisPlayer .card");
+						for(var i=0;i<cards.length;i++){
+							cards[i].style.backgroundColor = "white";
+						}
+						cardIndices = [];
+						//stopTimerForPlayer();
+						
+						/* var gameObj = messageObj.game;
+						var playerObjs = gameObj.players;
+						
+						for(var i=0;i<playerObjs.length;i++){
+							if(gameObj.nextPlayerDirectionToMove == playerObjs[i].direction){
+								startTimerForPlayer(".playerNode[data-dir='" + playerObjs[i].direction + "'] .timer", playerObjs[i].currentTimeLeft > 0 ? playerObjs[i].currentTimeLeft : undefined);
+								break;
+							}
+						} */
+						
+						break;
+					case "gameStartCountdown":
+						startGameStartTimer(messageObj.room.currentTimeLeft > 0 ? messageObj.room.currentTimeLeft : undefined);
+						break;
+					case "startTimerForPlayer":
+						//gameObj = messageObj.game;
+						//var playerObjs = gameObj.players;
+						startTimerForPlayer();
+						/* for(var i=0;i<playerObjs.length;i++){
+							if(gameObj.nextPlayerDirectionToMove == playerObjs[i].direction){
+								startTimerForPlayer(".playerNode[data-dir='" + playerObjs[i].direction + "'] .timer", playerObjs[i].currentTimeLeft > 0 ? playerObjs[i].currentTimeLeft : undefined);
+								break;
+							}
+						} */
+						break;
+					case "stopTimers":
+						stopTimers();
+						break;
+				}
+			};
+			ws.onopen = function(evt){
+				console.log("ws opened");
+				function getRooms(){
+					if(document.getElementById("rooms").style.display != "none"){
+						ws.send(JSON.stringify({
+							"action":"getRooms"
+						}));
+					}
+				}
+				
+				if(document.location.hash != ""){
+					var roomId = document.location.hash.split("#room")[1];
+					if(typeof roomId != "undefined"){
+						document.getElementById("rooms").style.display = "none";
+						document.getElementById("room").style.display = "block";
+						ws.send(JSON.stringify({
+							"action":"joinRoomAsGuest",
+							"roomId": roomId
+						}));
+					}
+				}
+				
+				
+				getRooms();
+				setInterval(getRooms,5000);
+				
+			};
+			function placeCards(bitmap, containerSelector){
+				var container = document.querySelector(containerSelector);
+				container.innerHTML = "";
+				//var cards = ["Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "J", "Q", "K", "A", "Two"];
+				//var suits = ["spades", "clubs", "diamonds", "hearts"];
+				//var placedCards = [];
+				for(var i=0;i<bitmap.length;i++){
+					if(bitmap[i] === "1"){
+						container.appendChild(getCardHTMLNode(i));
+					}
+				}
+			}
+			
+			function cleanTable(){
+				var cardsDownContainers = document.querySelectorAll(".cardsDownContainer");
+				for(var i=0;i<cardsDownContainers.length;i++){
+					document.body.removeChild(cardsDownContainers[i]);
+				}
+			}
+			
+			
+			function startTimerForPlayer(){
+				
+				var curTimeLeft = 10;
+				timerSI = setInterval(function(){
+					document.querySelector(".timer").innerText = curTimeLeft--;
+					if(curTimeLeft <= 0){
+						clearInterval(timerSI);
+						document.querySelector(".timer").innerText = "";
+					}
+				}, 1000);
+			}
+			function stopTimers(){
+				console.log("stopping timer " + timerSI);
+				clearInterval(timerSI);
+				document.querySelector(".timer").innerText = "";
+				/* var timerNodes = document.querySelectorAll(".timer");
+				for(var i=0;i<timerNodes.length;i++){
+					timerNodes[i].innerText = "";
+				} */
+			}
+			function startGameStartTimer(time){
+				curTimeLeft = time || 10;
+				gameStartTimerSI = setInterval(function(){
+					document.getElementById("gameStartTimer").innerText = "Game starts in " + curTimeLeft;
+					curTimeLeft--;
+					if(curTimeLeft <= 0){
+						clearInterval(gameStartTimerSI);
+						document.getElementById("gameStartTimer").innerText = "";
+					}
+				}, 1000);
+			}
+			function stopGameStartTimer(){
+				clearInterval(gameStartTimerSI);
+				document.getElementById("gameStartTimer").innerText = "";
+			}
+			document.addEventListener('click', function(e){
+				console.log(e);
+				var element = e.target;
+				var classname = element.className;
+				if(classname == "room"){
+					var roomId = element.getAttribute("data-id");
+					ws.send(JSON.stringify({
+						"action":"joinRoom",
+						"roomId": roomId
+					}));
+				}
+				/* else if(classname == "card"){
+					if(cardIndices.indexOf(parseInt(element.id))==-1){
+						element.style.backgroundColor = "yellow";
+						cardIndices.push(parseInt(element.id));
+					}
+					else{
+						element.style.backgroundColor = "white";
+						cardIndices.splice(cardIndices.indexOf(parseInt(element.id)),1);
+					}
+				} */
+			});
+		</script>
+	</head>
+	<body>
+		<div id="room" style="display:none">
+			<div id="roomId"></div>
+			<!-- <div id="table"> -->
+				<div class="playerNode player1" data-dir="">
+					<span class="playerCards horizontal"></span>
+					<span class="position"></span>
+				</div>
+				<div class="playerNode player2" data-dir="">
+					<span class="playerCards vertical"></span>
+					<span class="position"></span>
+				</div>
+				<div class="playerNode player3" data-dir="">
+					<span class="playerCards horizontal"></span>
+					<span class="position"></span>
+				</div>
+				<div class="playerNode player4" data-dir="">
+					<span class="playerCards vertical"></span>
+					<span class="position"></span>
+				</div>
+				<div id="cardsDown">
+					<div class="cards horizontal" data-dir=""></div>
+				</div>
+			<!-- </div> -->
+			<div id="gameControls">
+				<button id="submit">Submit</button>
+				<button id="pass">Pass</button>
+				<div class="timer"></div>
+				<div id="gameStartTimer"></div>
+			</div>
+			
+			
+			
+		</div>
+		<div id="rooms"></div>
+		<div style="display:none" id="templates">
+			<div id="cardTemplate">
+				<div class="card #{suit}" id="#{id}">
+					<div class="symbol">
+				</div>
+				<div class="value">
+					#{value}
+				</div>
+				</div>
+			</div>
+			<div id="otherPlayerCardTemplate">
+				<div class="card">
+				
+				</div>
+			</div>
+		</div>
+	</body>
+	<script>
+		document.getElementById("submit").addEventListener('click', function(){
+			var str = "";
+			for(var i=0;i<52;i++){
+				str += cardIndices.indexOf(i)!=-1?"1":"0";
+			}
+			ws.send(JSON.stringify({"action":"placeCards", "cardsDown":str}));
+			//cardIndices = [];
+		});
+		document.getElementById("pass").addEventListener('click', function(){
+			var str = "";
+			for(var i=0;i<52;i++){
+				str += "0";
+			}
+			ws.send(JSON.stringify({"action":"placeCards", "cardsDown":str}));
+			//cardIndices = [];
+		});
+		function arrangePlayer1Cards(){
+			var tableWidth = window.innerWidth;	//document.body.clientWidth*3/4;	//document.querySelector("#table").clientWidth*3/4;
+			var player2Width = !!document.querySelector(".player2 .card")?document.querySelector(".player2 .card").clientWidth:0;
+			var width = tableWidth - player2Width;
+			width *= 3/4;
+			var player1Cards = document.querySelectorAll(".player1 .card");
+			var i, card;
+			for(i=1;i<player1Cards.length;i++){
+				card = player1Cards[i];
+				card.style.marginLeft = Math.min(0, (width - player1Cards.length*card.clientWidth) / (player1Cards.length - 1)) + "px";
+				// card.style.marginLeft = Math.max(- card.clientWidth / 2, Math.min(0, (width - player1Cards.length*card.clientWidth) / (player1Cards.length - 1))) + "px";
+			}
+		}
+		function arrangePlayer2Cards(){
+			var tableHeight = window.innerHeight;	//document.body.clientHeight*3/4;	//document.querySelector("#table").clientHeight*3/4;
+			var player3Height = !!document.querySelector(".player3 .card")?document.querySelector(".player3 .card").clientHeight:0;
+			var height = tableHeight - player3Height;
+			height *= 3/4;
+			var player2Cards = document.querySelectorAll(".player2 .card");
+			var i, card;
+			for(i=0;i<player2Cards.length-1;i++){
+				card = player2Cards[i];
+				card.style.marginBottom = Math.min(0, (height - player2Cards.length*card.clientHeight) / (player2Cards.length - 1)) + "px";
+				// card.style.marginBottom = Math.max(- card.clientHeight / 2, Math.min(0, (height - player2Cards.length*card.clientHeight) / (player2Cards.length - 1))) + "px";
+			}
+		}
+		function arrangePlayer3Cards(){
+			var tableWidth = window.innerWidth;	//document.body.clientWidth*3/4;	//document.querySelector("#table").clientWidth*3/4;
+			var player4Width = !!document.querySelector(".player4 .card")?document.querySelector(".player4 .card").clientWidth:0;
+			var width = tableWidth - player4Width;
+			width *= 3/4;
+			var player3Cards = document.querySelectorAll(".player3 .card");
+			var i, card;
+			for(i=0;i<player3Cards.length-1;i++){
+				card = player3Cards[i];
+				card.style.marginRight = Math.min(0, (width - player3Cards.length*card.clientWidth) / (player3Cards.length - 1)) + "px";
+				// card.style.marginRight = Math.max(- card.clientWidth / 2, Math.min(0, (width - player3Cards.length*card.clientWidth) / (player3Cards.length - 1))) + "px";
+			}
+		}
+		function arrangePlayer4Cards(){
+			var tableHeight = window.innerHeight;	//document.body.clientHeight*3/4;	//document.querySelector("#table").clientHeight*3/4;
+			var player1Height = !!document.querySelector(".player1 .card")?document.querySelector(".player1 .card").clientHeight:0;
+			var height = tableHeight - player1Height;
+			height *= 3/4;
+			var player4Cards = document.querySelectorAll(".player4 .card");
+			var i, card;
+			for(i=1;i<player4Cards.length;i++){
+				card = player4Cards[i];
+				card.style.marginTop = Math.min(0, (height - player4Cards.length*card.clientHeight) / (player4Cards.length - 1)) + "px";
+				// card.style.marginTop = Math.max(- card.clientHeight / 2, Math.min(0, (height - player4Cards.length*card.clientHeight) / (player4Cards.length - 1))) + "px";
+			}
+		}
+		
+		window.addEventListener("resize", function(e){
+			setTimeout(function(){
+				//return;
+				arrangePlayer1Cards();
+				arrangePlayer2Cards();
+				arrangePlayer3Cards();
+				arrangePlayer4Cards();
+			}, 0);
+			
+		});
+	</script>
+</html>
