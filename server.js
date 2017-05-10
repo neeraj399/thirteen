@@ -7,4 +7,5 @@ var server = http.createServer(function(request, response) {
 });
 
 server.listen(5000, function() {
+	console.log("server running on 5000");
 });
